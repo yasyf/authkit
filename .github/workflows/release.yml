@@ -1,0 +1,123 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+# Modeled on cookiesync's helper-build release lane: build the .app, sign it
+# Developer ID with Hardened Runtime + the keychain-access-groups entitlements,
+# notarize + staple + zip + attach via the shared tap actions, then publish the
+# authkit cask to yasyf/homebrew-tap.
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Refuse to release a tag that is not on main
+        uses: yasyf/homebrew-tap/.github/actions/verify-tag-on-main@v1
+
+      # A distributed release must be notarized + stapled: the shared action's
+      # behavior with absent notary keys is unverifiable, so fail loud here
+      # instead of ever publishing a signed-but-unnotarized artifact.
+      - name: Refuse to release without notary credentials
+        env:
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+        run: |
+          for name in MACOS_NOTARY_KEY MACOS_NOTARY_KEY_ID MACOS_NOTARY_ISSUER_ID; do
+            test -n "${!name}" || { echo "::error::$name secret is empty — a release must be notarized and stapled"; exit 1; }
+          done
+
+      - name: Import Developer ID certificate
+        uses: yasyf/homebrew-tap/.github/actions/import-developer-id@v1
+        with:
+          p12: ${{ secrets.MACOS_SIGN_P12 }}
+          p12-password: ${{ secrets.MACOS_SIGN_PASSWORD }}
+          notary-key: ${{ secrets.MACOS_NOTARY_KEY }}
+          notary-key-id: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          notary-issuer-id: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+
+      - name: Decode the provisioning profile
+        env:
+          MACOS_PROVISION_PROFILE_AUTHKIT: ${{ secrets.MACOS_PROVISION_PROFILE_AUTHKIT }}
+        run: |
+          test -n "$MACOS_PROVISION_PROFILE_AUTHKIT" || { echo "::error::MACOS_PROVISION_PROFILE_AUTHKIT secret is empty"; exit 1; }
+          echo -n "$MACOS_PROVISION_PROFILE_AUTHKIT" | base64 --decode > "$RUNNER_TEMP/embedded.provisionprofile"
+          echo "PROFILE_FILE=$RUNNER_TEMP/embedded.provisionprofile" >> "$GITHUB_ENV"
+
+      # Signing stays bespoke (sign: "false" below): both codesign passes must
+      # carry the keychain-access-groups entitlements build-app.sh materializes.
+      - name: Build and Developer-ID-sign authkit.app
+        env:
+          AUTHKIT_UNIVERSAL: "1"
+        run: |
+          APP="$(bash build-app.sh "$TEAM_ID" "$PROFILE_FILE")"
+          ENTITLEMENTS="build/authkit.entitlements"
+          BINARY="$APP/Contents/MacOS/authkit"
+          test -f "$BINARY"
+          test -f "$APP/Contents/embedded.provisionprofile"
+          test -f "$ENTITLEMENTS"
+          grep -q "$TEAM_ID.com.yasyf.cookiesync.helper" "$ENTITLEMENTS"
+          lipo -archs "$BINARY" | grep -q "x86_64 arm64\|arm64 x86_64"
+
+          # Sign inside-out: the inner Mach-O first, then the bundle. Hardened
+          # runtime + secure timestamp + the entitlements on both.
+          codesign --force --options runtime --timestamp \
+            --entitlements "$ENTITLEMENTS" -s "$MACOS_SIGN_IDENTITY" "$BINARY"
+          codesign --force --options runtime --timestamp \
+            --entitlements "$ENTITLEMENTS" -s "$MACOS_SIGN_IDENTITY" "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+          # The DR must anchor to Developer ID (…6.2.6…), never a bare root.
+          codesign -d -r- "$APP" 2>&1 | grep -q "field.1.2.840.113635.100.6.2.6"
+
+          # The lockdown must hold: neither get-task-allow nor
+          # disable-library-validation may appear in the signed entitlements.
+          codesign -d --entitlements :- "$APP" > "$RUNNER_TEMP/signed-entitlements.plist"
+          ! grep -q "com.apple.security.get-task-allow" "$RUNNER_TEMP/signed-entitlements.plist"
+          ! grep -q "disable-library-validation" "$RUNNER_TEMP/signed-entitlements.plist"
+          grep -q "keychain-access-groups" "$RUNNER_TEMP/signed-entitlements.plist"
+
+          echo "HELPER_APP=$APP" >> "$GITHUB_ENV"
+
+      - name: Notarize, staple, zip, and attach the .app
+        id: app
+        uses: yasyf/homebrew-tap/.github/actions/sign-notarize-app@v1
+        with:
+          app: ${{ env.HELPER_APP }}
+          # github.ref_name supplies the vX.Y.Z, so the asset name stays
+          # authkit-v#{version}-darwin.zip — the cask url depends on it.
+          name: authkit
+          sign: "false"
+          # This job creates the release, so let the attach step generate notes.
+          release-notes: "true"
+
+      # Only real, non-prerelease v* tags publish the cask: a `-`-bearing tag
+      # ships a prerelease asset that must not become the tap's `latest`.
+      - name: Render the cask
+        if: ${{ !contains(github.ref_name, '-') }}
+        uses: yasyf/homebrew-tap/.github/actions/render-formula@v1
+        with:
+          template: .github/cask/authkit.rb.tmpl
+          output: Casks/authkit.rb
+          substitutions: |
+            __SHA_APP__=${{ steps.app.outputs.sha256 }}
+
+      - name: Publish the cask to the tap
+        if: ${{ !contains(github.ref_name, '-') }}
+        uses: yasyf/homebrew-tap/.github/actions/publish@v1
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          dir: tap-staging
+          message: "authkit ${{ github.ref_name }}"
