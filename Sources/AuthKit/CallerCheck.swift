@@ -26,8 +26,10 @@ public struct CallerCheck: Sendable {
 
     /// Code-signing identifiers of the binaries allowed to invoke prompting or
     /// signing subcommands. cc-sudo-exec is a root-owned copy of the cc-sudo
-    /// binary, so it carries the cc-sudo identifier.
-    public static let pinnedIdentifiers = ["cc-sudo", "synckitd", "cookiesync"]
+    /// binary, so it carries the cc-sudo identifier. cookiesync's goreleaser
+    /// pipeline stamps the Go default module-path identifier, not the bare
+    /// binary name — the pin matches what actually ships.
+    public static let pinnedIdentifiers = ["cc-sudo", "synckitd", "com.github.yasyf.cookiesync"]
 
     /// The pinned designated requirement: one of the pinned identifiers, signed
     /// Developer ID (leaf and intermediate marker OIDs), under the pinned team.
