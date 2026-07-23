@@ -125,6 +125,16 @@ jobs:
           title: ${{ github.ref_name }}
           prerelease: ${{ contains(github.ref_name, '-') }}
 
+      - name: Publish the exact verified application release
+        uses: yasyf/homebrew-tap/.github/actions/publish-draft-release@54e3e194bda69896894a82c17fcdb2822beefab5
+        with:
+          token: ${{ github.token }}
+          release-id: ${{ steps.draft.outputs['release-id'] }}
+          tag: ${{ github.ref_name }}
+          manifest: ${{ runner.temp }}/authkit-release-assets
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          make-latest: ${{ !contains(github.ref_name, '-') }}
+
       # Only real, non-prerelease v* tags publish the cask: a `-`-bearing tag
       # ships a prerelease asset that must not become the tap's `latest`.
       - name: Render the cask
@@ -143,13 +153,3 @@ jobs:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           dir: tap-staging
           message: "authkit ${{ github.ref_name }}"
-
-      - name: Publish the exact verified application release
-        uses: yasyf/homebrew-tap/.github/actions/publish-draft-release@54e3e194bda69896894a82c17fcdb2822beefab5
-        with:
-          token: ${{ github.token }}
-          release-id: ${{ steps.draft.outputs['release-id'] }}
-          tag: ${{ github.ref_name }}
-          manifest: ${{ runner.temp }}/authkit-release-assets
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          make-latest: ${{ !contains(github.ref_name, '-') }}
