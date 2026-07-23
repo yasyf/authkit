@@ -85,20 +85,27 @@ jobs:
           # The lockdown must hold: neither get-task-allow nor
           # disable-library-validation may appear in the signed entitlements.
           codesign -d --entitlements :- "$APP" > "$RUNNER_TEMP/signed-entitlements.plist"
-          ! grep -q "com.apple.security.get-task-allow" "$RUNNER_TEMP/signed-entitlements.plist"
-          ! grep -q "disable-library-validation" "$RUNNER_TEMP/signed-entitlements.plist"
+          if grep -q "com.apple.security.get-task-allow" "$RUNNER_TEMP/signed-entitlements.plist"; then
+            echo "::error::signed app retains get-task-allow"
+            exit 1
+          fi
+          if grep -q "disable-library-validation" "$RUNNER_TEMP/signed-entitlements.plist"; then
+            echo "::error::signed app disables library validation"
+            exit 1
+          fi
           grep -q "keychain-access-groups" "$RUNNER_TEMP/signed-entitlements.plist"
 
           echo "HELPER_APP=$APP" >> "$GITHUB_ENV"
 
       - name: Notarize, staple, zip, and attach the .app
         id: app
-        uses: yasyf/homebrew-tap/.github/actions/sign-notarize-app@v1
+        uses: yasyf/homebrew-tap/.github/actions/sign-notarize-app@v2
         with:
           app: ${{ env.HELPER_APP }}
           # github.ref_name supplies the vX.Y.Z, so the asset name stays
           # authkit-v#{version}-darwin.zip — the cask url depends on it.
           name: authkit
+          release-tag: ${{ github.ref_name }}
           sign: "false"
           # This job creates the release, so let the attach step generate notes.
           release-notes: "true"
