@@ -5,7 +5,7 @@ on:
     tags: ["v*"]
 
 concurrency:
-  group: release
+  group: release-${{ github.repository }}-${{ github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
 
       - name: Refuse to release a tag that is not on main
-        uses: yasyf/homebrew-tap/.github/actions/verify-tag-on-main@v1
+        uses: yasyf/homebrew-tap/.github/actions/verify-tag-on-main@19c3d5013032ad9c88f9a8f1170d1f366c19b8d9
 
       # A distributed release must be notarized + stapled: the shared action's
       # behavior with absent notary keys is unverifiable, so fail loud here
@@ -40,7 +40,7 @@ jobs:
           done
 
       - name: Import Developer ID certificate
-        uses: yasyf/homebrew-tap/.github/actions/import-developer-id@v1
+        uses: yasyf/homebrew-tap/.github/actions/import-developer-id@19c3d5013032ad9c88f9a8f1170d1f366c19b8d9
         with:
           p12: ${{ secrets.MACOS_SIGN_P12 }}
           p12-password: ${{ secrets.MACOS_SIGN_PASSWORD }}
@@ -97,24 +97,39 @@ jobs:
 
           echo "HELPER_APP=$APP" >> "$GITHUB_ENV"
 
-      - name: Notarize, staple, zip, and attach the .app
+      - name: Notarize, staple, and package the .app
         id: app
-        uses: yasyf/homebrew-tap/.github/actions/sign-notarize-app@v2
+        uses: yasyf/homebrew-tap/.github/actions/sign-notarize-app@19c3d5013032ad9c88f9a8f1170d1f366c19b8d9
         with:
           app: ${{ env.HELPER_APP }}
-          # github.ref_name supplies the vX.Y.Z, so the asset name stays
-          # authkit-v#{version}-darwin.zip — the cask url depends on it.
           name: authkit
           release-tag: ${{ github.ref_name }}
           sign: "false"
-          # This job creates the release, so let the attach step generate notes.
-          release-notes: "true"
+
+      - name: Record the exact application release manifest
+        env:
+          ZIP: ${{ steps.app.outputs.zip }}
+        run: |
+          set -euo pipefail
+          test -f "$ZIP"
+          test -f "$ZIP.sha256"
+          printf '%s\n' "$ZIP" "$ZIP.sha256" > "$RUNNER_TEMP/authkit-release-assets"
+
+      - name: Stage and verify the exact application draft
+        id: draft
+        uses: yasyf/homebrew-tap/.github/actions/stage-draft-release@54e3e194bda69896894a82c17fcdb2822beefab5
+        with:
+          token: ${{ github.token }}
+          tag: ${{ github.ref_name }}
+          manifest: ${{ runner.temp }}/authkit-release-assets
+          title: ${{ github.ref_name }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
 
       # Only real, non-prerelease v* tags publish the cask: a `-`-bearing tag
       # ships a prerelease asset that must not become the tap's `latest`.
       - name: Render the cask
         if: ${{ !contains(github.ref_name, '-') }}
-        uses: yasyf/homebrew-tap/.github/actions/render-formula@v1
+        uses: yasyf/homebrew-tap/.github/actions/render-formula@19c3d5013032ad9c88f9a8f1170d1f366c19b8d9
         with:
           template: .github/cask/authkit.rb.tmpl
           output: Casks/authkit.rb
@@ -123,8 +138,18 @@ jobs:
 
       - name: Publish the cask to the tap
         if: ${{ !contains(github.ref_name, '-') }}
-        uses: yasyf/homebrew-tap/.github/actions/publish@v2
+        uses: yasyf/homebrew-tap/.github/actions/publish@19c3d5013032ad9c88f9a8f1170d1f366c19b8d9
         with:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           dir: tap-staging
           message: "authkit ${{ github.ref_name }}"
+
+      - name: Publish the exact verified application release
+        uses: yasyf/homebrew-tap/.github/actions/publish-draft-release@54e3e194bda69896894a82c17fcdb2822beefab5
+        with:
+          token: ${{ github.token }}
+          release-id: ${{ steps.draft.outputs['release-id'] }}
+          tag: ${{ github.ref_name }}
+          manifest: ${{ runner.temp }}/authkit-release-assets
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          make-latest: ${{ !contains(github.ref_name, '-') }}

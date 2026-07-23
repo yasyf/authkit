@@ -34,6 +34,22 @@ jobs:
         run: swiftformat --lint .
       - name: Lint
         run: swiftlint --quiet
+      - name: Verify the exact release contract
+        run: |
+          set -euo pipefail
+          workflow=.github/workflows/release.yml
+          grep -Fq 'sign-notarize-app@19c3d5013032ad9c88f9a8f1170d1f366c19b8d9' "$workflow"
+          grep -Fq 'stage-draft-release@54e3e194bda69896894a82c17fcdb2822beefab5' "$workflow"
+          grep -Fq 'publish-draft-release@54e3e194bda69896894a82c17fcdb2822beefab5' "$workflow"
+          if grep -Eq 'yasyf/homebrew-tap/.+@(v[0-9]+|main)|softprops/action-gh-release|release-notes:' "$workflow"; then
+            echo "::error::release workflow contains a mutable or publishing compatibility path"
+            exit 1
+          fi
+          stage="$(grep -n 'stage-draft-release@' "$workflow" | cut -d: -f1)"
+          tap="$(grep -n 'name: Publish the cask to the tap' "$workflow" | cut -d: -f1)"
+          publish="$(grep -n 'publish-draft-release@' "$workflow" | cut -d: -f1)"
+          test "$stage" -lt "$tap"
+          test "$tap" -lt "$publish"
       - name: Build
         run: swift build
       - name: Test
