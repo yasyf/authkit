@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
 
       - name: Refuse to release a tag that is not on main
-        uses: yasyf/homebrew-tap/.github/actions/verify-tag-on-main@6ff6d7538aa743581185054c46627a9a644ba695
+        uses: yasyf/homebrew-tap/.github/actions/verify-tag-on-main@a4179241558456339fa2e41b97693a6cebae2e36
 
       # A distributed release must be notarized + stapled: the shared action's
       # behavior with absent notary keys is unverifiable, so fail loud here
