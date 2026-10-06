@@ -15,17 +15,7 @@ public struct SEAttestor: Sendable {
         if let existing = try loadKey(context: nil) {
             return existing
         }
-        var acError: Unmanaged<CFError>?
-        guard let access = SecAccessControlCreateWithFlags(
-            kCFAllocatorDefault,
-            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-            [.biometryCurrentSet, .or, .devicePasscode, .and, .privateKeyUsage],
-            &acError
-        ) else {
-            throw HelperFailure.classify(
-                "SecAccessControlCreateWithFlags", error: acError, otherwise: HelperFailure.unavailable
-            )
-        }
+        let access = try Self.accessControl()
         let attributes: [String: Any] = [
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
             kSecAttrKeySizeInBits as String: 256,
@@ -43,6 +33,21 @@ public struct SEAttestor: Sendable {
             throw HelperFailure.classify("SecKeyCreateRandomKey", error: genError, otherwise: HelperFailure.unavailable)
         }
         return key
+    }
+
+    static func accessControl() throws -> SecAccessControl {
+        var acError: Unmanaged<CFError>?
+        guard let access = SecAccessControlCreateWithFlags(
+            kCFAllocatorDefault,
+            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            [.biometryCurrentSet, .or, .devicePasscode, .privateKeyUsage],
+            &acError
+        ) else {
+            throw HelperFailure.classify(
+                "SecAccessControlCreateWithFlags", error: acError, otherwise: HelperFailure.unavailable
+            )
+        }
+        return access
     }
 
     /// Loads the attestation key without UI. `context` (a pre-evaluated

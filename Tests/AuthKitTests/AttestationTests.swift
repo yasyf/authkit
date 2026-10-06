@@ -133,3 +133,7 @@ func sign(_ message: Data, with privateKey: SecKey) throws -> Data {
     #expect(keyID == Attestation.keyID(publicKey: publicKeyX963))
     #expect(keyID != Attestation.keyID(publicKey: publicKeyX963 + Data([0])))
 }
+
+@Test func attestationKeyAccessControlIsAcceptedBySecurityFramework() throws {
+    _ = try SEAttestor.accessControl()
+}
