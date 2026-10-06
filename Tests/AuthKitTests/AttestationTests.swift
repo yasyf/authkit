@@ -137,3 +137,8 @@ func sign(_ message: Data, with privateKey: SecKey) throws -> Data {
 @Test func attestationKeyAccessControlIsAcceptedBySecurityFramework() throws {
     _ = try SEAttestor.accessControl()
 }
+
+@Test func attestationKeyKeygenNeedsNoBiometryDatabase() {
+    #expect(SEAttestor.accessControlFlags.contains(.userPresence))
+    #expect(!SEAttestor.accessControlFlags.contains(.biometryCurrentSet))
+}

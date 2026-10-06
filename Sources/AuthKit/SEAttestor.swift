@@ -3,9 +3,9 @@ import LocalAuthentication
 import Security
 
 /// The Secure-Enclave attestation key: a permanent P-256 key whose ACL demands
-/// current biometrics or the device passcode for every signature, so the Touch
-/// ID sheet IS the signing operation. Keygen requires the signed, provisioned
-/// .app bundle — an unsigned build is refused by the Enclave.
+/// user presence (Touch ID or the device passcode) for every signature, so the
+/// Touch ID sheet IS the signing operation. Keygen requires the signed,
+/// provisioned .app bundle — an unsigned build is refused by the Enclave.
 public struct SEAttestor: Sendable {
     public init() {}
 
@@ -35,12 +35,14 @@ public struct SEAttestor: Sendable {
         return key
     }
 
+    static let accessControlFlags: SecAccessControlCreateFlags = [.userPresence, .privateKeyUsage]
+
     static func accessControl() throws -> SecAccessControl {
         var acError: Unmanaged<CFError>?
         guard let access = SecAccessControlCreateWithFlags(
             kCFAllocatorDefault,
             kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-            [.biometryCurrentSet, .or, .devicePasscode, .privateKeyUsage],
+            accessControlFlags,
             &acError
         ) else {
             throw HelperFailure.classify(
