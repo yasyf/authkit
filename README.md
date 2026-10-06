@@ -25,7 +25,7 @@ authkit is the fleet's signed Touch ID / Secure Enclave helper — a dependency 
 
 ### Prove a consent decision, don't just report it
 
-A verdict message on an attacker-controllable socket proves nothing. authkit's `consent-sign` reads `{nonce, argv, requested_from?}` on stdin, signs `nonce ‖ sha256(argv)` with a Secure Enclave key whose ACL demands current biometrics or the device passcode, and writes `{key_id, sig}`. The Touch ID sheet *is* the signing operation — a transport can carry the signature but cannot mint one. Verification needs no privileged binary: the `AuthKit` SPM library ships plain-Security.framework helpers (`Attestation.verify`) any process can call.
+A verdict message on an attacker-controllable socket proves nothing. authkit's `consent-sign` reads `{nonce, argv, requested_from?}` on stdin, signs `nonce ‖ sha256(argv)` with a Secure Enclave key whose ACL demands user presence (Touch ID or the device passcode), and writes `{key_id, sig}`. The Touch ID sheet *is* the signing operation — a transport can carry the signature but cannot mint one. Verification needs no privileged binary: the `AuthKit` SPM library ships plain-Security.framework helpers (`Attestation.verify`) any process can call.
 
 ### Show the human exactly what they authorize
 
