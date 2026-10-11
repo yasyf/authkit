@@ -64,6 +64,7 @@ import Testing
     #expect(CallerCheck.pinnedTeamID == "SXKCTF23Q2")
     #expect(CallerCheck.pinnedIdentifiers.contains("cc-sudo"))
     #expect(CallerCheck.pinnedIdentifiers.contains("synckitd"))
+    #expect(CallerCheck.pinnedIdentifiers.contains("cci"))
     // The shipped cookiesync CLI carries goreleaser's module-path identifier.
     #expect(CallerCheck.pinnedIdentifiers.contains("com.github.yasyf.cookiesync"))
 }
