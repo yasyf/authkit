@@ -77,12 +77,23 @@ public enum Subject {
         return "\(text.prefix(keep))…[\(text.count) chars]…\(text.suffix(keep))"
     }
 
-    /// Replaces every character a consent surface must not draw (C0/DEL
-    /// controls, format characters, bidi overrides and isolates) with U+FFFD.
+    /// Escapes every scalar a consent surface must not draw (C0/DEL controls,
+    /// format characters, bidi overrides and isolates) as `\n`, `\r`, `\t` or
+    /// `\u{XXXX}`, and a backslash as `\\`, so two different arguments never
+    /// render the same.
     public static func sanitized(_ text: String) -> String {
-        String(text.map { character in
-            character.unicodeScalars.allSatisfy(displaySafe) ? character : "\u{FFFD}"
-        })
+        var rendered = ""
+        for scalar in text.unicodeScalars {
+            switch scalar {
+            case "\\": rendered += "\\\\"
+            case "\n": rendered += "\\n"
+            case "\r": rendered += "\\r"
+            case "\t": rendered += "\\t"
+            case _ where displaySafe(scalar): rendered.unicodeScalars.append(scalar)
+            default: rendered += "\\u{" + String(scalar.value, radix: 16, uppercase: true) + "}"
+            }
+        }
+        return rendered
     }
 
     /// C0/DEL controls, every General_Category=Cf format character, and the
