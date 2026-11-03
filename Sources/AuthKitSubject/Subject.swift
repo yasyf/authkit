@@ -77,7 +77,9 @@ public enum Subject {
         return "\(text.prefix(keep))…[\(text.count) chars]…\(text.suffix(keep))"
     }
 
-    private static func sanitized(_ text: String) -> String {
+    /// Replaces every character a consent surface must not draw (C0/DEL
+    /// controls, format characters, bidi overrides and isolates) with U+FFFD.
+    public static func sanitized(_ text: String) -> String {
         String(text.map { character in
             character.unicodeScalars.allSatisfy(displaySafe) ? character : "\u{FFFD}"
         })

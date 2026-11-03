@@ -58,7 +58,7 @@ The `vault-*` subcommands are a biometry-bound Keychain vault (cookiesync-keyhel
 | `vault-enroll` / `vault-retrieve` / `vault-retrieve-biometric` / `vault-batch-retrieve` / `vault-status` | Biometry-bound Keychain vault |
 | `cache-newkey` / `cache-wrap` / `cache-unwrap` / `cache-dropkey` | Per-boot Secure-Enclave ECIES cache |
 
-The subject digest is SHA-256 over a length-prefixed argv encoding (8-byte big-endian byte count per argument), a `0x00` separator, and the UTF-8 origin host (`requested_from`, empty for a local request) — see `Sources/AuthKit/Subject.swift`. `key_id` is the hex SHA-256 of the X9.63 public key.
+The subject digest is SHA-256 over a length-prefixed argv encoding (8-byte big-endian byte count per argument), a `0x00` separator, and the UTF-8 origin host (`requested_from`, empty for a local request) — see `Sources/AuthKitSubject/Subject.swift`. `key_id` is the hex SHA-256 of the X9.63 public key.
 
 </details>
 
