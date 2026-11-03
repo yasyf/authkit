@@ -63,20 +63,36 @@ func subjectDigestMatchesKnownAnswers(argv: [String], originHost: String, expect
     let commandLine = reason.split(separator: "\n").first.map(String.init) ?? ""
     #expect(!commandLine.contains("\r"))
     #expect(reason.split(separator: "\n").count == 2)
-    #expect(reason.contains("\u{FFFD}"))
+    #expect(commandLine.contains(#"/tmp/x\r\nls"#))
 }
 
 @Test func displayNeutralizesBidiOverridesSoArgvCannotReorderTheSheet() {
     let reason = Subject.display(argv: ["touch", "\u{202E}txt.harmless"])
     #expect(!reason.contains("\u{202E}"))
-    #expect(reason.contains("\u{FFFD}"))
+    #expect(reason.contains(#"\u{202E}txt.harmless"#))
 }
 
-@Test(arguments: ["\u{2066}", "\u{2069}", "\u{200E}", "\u{00AD}", "\u{FEFF}"])
-func displayNeutralizesFormatCharacters(control: String) {
+@Test(arguments: [
+    ("\u{2066}", #"\u{2066}x"#),
+    ("\u{2069}", #"\u{2069}x"#),
+    ("\u{200E}", #"\u{200E}x"#),
+    ("\u{00AD}", #"\u{AD}x"#),
+    ("\u{FEFF}", #"\u{FEFF}x"#),
+])
+func displayEscapesFormatCharacters(control: String, escaped: String) {
     let reason = Subject.display(argv: ["ls", control + "x"])
     #expect(!reason.contains(control))
-    #expect(reason.contains("\u{FFFD}"))
+    #expect(reason.contains(escaped))
+}
+
+@Test(arguments: [
+    ("printf ok #\n/usr/bin/touch /var/root/pwned", #"printf ok #\n/usr/bin/touch /var/root/pwned"#),
+    (#"printf ok #\n/usr/bin/touch /var/root/pwned"#, #"printf ok #\\n/usr/bin/touch /var/root/pwned"#),
+    ("a\u{FFFD}b", "a\u{FFFD}b"),
+    ("a\u{7F}b", #"a\u{7F}b"#),
+])
+func sanitizedEscapesReversiblySoAHiddenNewlineCannotPassForText(argument: String, rendered: String) {
+    #expect(Subject.sanitized(argument) == rendered)
 }
 
 @Test func displayMiddleElidesAPathologicallyLongElementWithAVisibleMarker() {

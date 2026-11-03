@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so a phone approver signs the same bytes a Mac's helper signs. `AuthKit`
   re-exports it, so existing imports keep compiling.
 
+### Fixed
+- The consent sheet escapes control, format, and bidi characters reversibly
+  (`\n`, `\r`, `\t`, `\u{XXXX}`, and a backslash as `\\`) instead of drawing
+  U+FFFD, so a script with a hidden newline no longer renders like a harmless
+  one with a literal replacement character.
+
 ## [0.1.0] - 2026-07-16
 
 ### Added
