@@ -66,3 +66,5 @@ jobs:
         run: swift build
       - name: Test
         run: swift test
+      - name: Build AuthKitSubject for iOS
+        run: xcodebuild build -scheme AuthKitSubject -destination 'generic/platform=iOS' -quiet

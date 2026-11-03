@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `cci` is a pinned caller, so cc-inbox can endorse its mesh node key with one
   `consent-sign` under the Secure Enclave key.
+- `AuthKitSubject` library product with the subject digest, display cleaning
+  (`Subject.sanitized`), and `Attestation`, building for iOS 18 as well as macOS,
+  so a phone approver signs the same bytes a Mac's helper signs. `AuthKit`
+  re-exports it, so existing imports keep compiling.
 
 ## [0.1.0] - 2026-07-16
 
