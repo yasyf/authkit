@@ -40,3 +40,12 @@ func classifyReadMapsFailuresOntoTheExitContract(status: OSStatus, expected: Int
         Issue.record("classifyRead threw a non-HelperFailure: \(error)")
     }
 }
+
+@Test func vaultAccessControlIsAcceptedBySecurityFramework() throws {
+    _ = try Vault.accessControl()
+}
+
+@Test func vaultEnrollmentNeedsNoBiometryDatabase() {
+    #expect(Vault.accessControlFlags.contains(.userPresence))
+    #expect(!Vault.accessControlFlags.contains(.biometryCurrentSet))
+}
