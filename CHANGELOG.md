@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-17
+
+### Fixed
+- The vault enrolls on a Mac with no usable Touch ID (no Touch ID keyboard
+  connected, or no enrolled fingerprints). Its items now
+  require user presence (biometrics or the passcode) instead of the current
+  biometry set, which macOS cannot bind without a biometry database: every
+  enrollment failed with OSStatus -25293 after a successful passcode entry, and
+  cookiesync reported it as a cancelled Touch ID prompt.
+- A failed authentication names its LAError code on stderr (`denied (LAError -2)`)
+  instead of a bare `denied`.
+
+## [0.3.0] - 2026-11-03
+
 ### Added
 - `cci` is a pinned caller, so cc-inbox can endorse its mesh node key with one
   `consent-sign` under the Secure Enclave key.

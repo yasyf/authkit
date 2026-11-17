@@ -3,9 +3,9 @@ import LocalAuthentication
 import Security
 
 /// The biometry-bound consent vault, ported from cookiesync-keyhelper: generic
-/// passwords in the shared access group whose ACL demands current biometrics or
-/// the device passcode. Items keep cookiesync's service names and access group,
-/// so existing enrollments survive the migration unchanged.
+/// passwords in the shared access group whose ACL demands user presence
+/// (biometrics or the device passcode). Items keep cookiesync's service names
+/// and access group, so existing enrollments survive the migration unchanged.
 public enum Vault {
     public struct Item: Sendable {
         public let vaultService: String
@@ -35,12 +35,14 @@ public enum Vault {
         return data
     }
 
+    static let accessControlFlags: SecAccessControlCreateFlags = .userPresence
+
     static func accessControl() throws -> SecAccessControl {
         var acError: Unmanaged<CFError>?
         guard let access = SecAccessControlCreateWithFlags(
             kCFAllocatorDefault,
             kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-            [.biometryCurrentSet, .or, .devicePasscode],
+            accessControlFlags,
             &acError
         ) else {
             throw HelperFailure.classify(
@@ -131,8 +133,8 @@ public enum Vault {
             }
             return data
         case errSecItemNotFound, errSecAuthFailed:
-            // The biometry-bound item is gone or invalidated (the fingerprint
-            // set changed, which voids a .biometryCurrentSet ACL): re-enroll.
+            // The item is gone or invalidated (an item enrolled under the old
+            // .biometryCurrentSet ACL voids when the fingerprint set changes): re-enroll.
             throw HelperFailure.unavailable("vault item '\(vaultService)' missing or invalidated: re-enroll")
         case errSecUserCanceled:
             throw HelperFailure.denied("retrieve cancelled by user")
@@ -286,7 +288,7 @@ public enum Vault {
             case .notInteractive, .invalidContext, .biometryNotAvailable, .passcodeNotSet:
                 throw unavailable("LAError \(code.rawValue)")
             default:
-                throw HelperFailure.denied("denied")
+                throw HelperFailure.denied("denied (LAError \(code.rawValue))")
             }
         }
     }
